@@ -13,9 +13,6 @@ try:
 except ImportError:
  import Image
 
-FONT = cv2.FONT_HERSHEY_DUPLEX
-
-
 def get_contour_shape(cnt):
     approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
     x = approx.ravel()[0]
@@ -91,7 +88,6 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes):
             G.add_node(i, shape="D")
         else:
             G.add_node(i, shape="*")
-
     for contour in edge_mask_contours:
         fit_line = cv2.fitLine(contour, cv2.DIST_L2, 0, 0.1, 0.1)
         rect = cv2.minAreaRect(contour)
@@ -144,3 +140,4 @@ def get_node_contours_and_shapes(binary_img):
     node_shapes = [x[1] for x in node_contours_and_shapes]
 
     return node_contours, node_shapes
+
