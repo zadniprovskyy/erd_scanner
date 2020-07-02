@@ -113,17 +113,14 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes):
 def get_node_contours_and_shapes(binary_img):
     contours, hierarchy = cv2.findContours(binary_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     new_contours = []
-
     for i in range(len(hierarchy[0])):
         h_i = hierarchy[0][i]
         ct_i = contours[i]
         next_c, prev_c, child_c, parent_c = h_i
         ct_shape = get_contour_shape(ct_i)
-
         if ct_shape in ['rectangle', 'ellipse', 'rhombus', 'triangle']:
-            line_type = line_distinguisher(ct_i,binary_img) # get the line type for the shape
             if parent_c == -1:
-                new_contours.append((ct_i, ct_shape,line_type))
+                new_contours.append((ct_i, ct_shape))
             else:
                 parent_shape = get_contour_shape(contours[parent_c])
                 if parent_shape not in ['rectangle', 'ellipse', 'rhombus', 'triangle']:
@@ -131,7 +128,7 @@ def get_node_contours_and_shapes(binary_img):
                     if grandpa_c == -1 or get_contour_shape(contours[grandpa_c]) not in ['rectangle', 'ellipse',
                                                                                          'rhombus',
                                                                                          'triangle']:
-                        new_contours.append((ct_i, ct_shape,line_type))
+                        new_contours.append((ct_i, ct_shape))
     # contours = sorted(contours, key=lambda cnt: -cv2.contourArea(cnt))
 
     cnts_perim = np.array([cv2.arcLength(cnt, True) for cnt, _ in new_contours])
@@ -139,8 +136,7 @@ def get_node_contours_and_shapes(binary_img):
 
     node_contours = [x[0] for x in node_contours_and_shapes]
     node_shapes = [x[1] for x in node_contours_and_shapes]
-    node_lines = [x[2] for x in node_contours_and_shapes]
-    return node_contours, node_shapes,node_lines
+    return node_contours, node_shapes
 
 def line_distinguisher(cnt,ori_img):
     solid,dotted = line_style(ori_img)
@@ -183,7 +179,6 @@ def line_style(img):
         solid_line.append(line[0])
     dotline_img = np.copy(img)*0 #black image with the same resolution
     dotlines =edge_mask-line_only
-    cv2_imshow(dotlines)
     dotlines_coor = cv2.HoughLinesP(dotlines, rho, theta, threshold, np.array([]),
                         30, 10)
     for i in range(len(dotlines_coor)):
