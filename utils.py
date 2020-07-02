@@ -138,8 +138,7 @@ def get_node_contours_and_shapes(binary_img):
     node_shapes = [x[1] for x in node_contours_and_shapes]
     return node_contours, node_shapes
 
-def line_distinguisher(cnt,ori_img):
-    solid,dotted = line_style(ori_img)
+def line_distinguisher(cnt,solid,dotted):
     x,y,w,h = cv.boundingRect(cnt) #Find the bound for the contour in rectangle
     for line in solid:
         x1,y1,x2,y2 = line #Get coordinates of the line
@@ -152,6 +151,7 @@ def line_distinguisher(cnt,ori_img):
             #the line is associated with the contour
             return "dotted"
     return "None"
+    
 def line_style(img):
     solid_line = [] # Stores solid line points
     dotted_line = [] #Stores dotline points
