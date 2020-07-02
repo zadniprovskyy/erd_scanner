@@ -7,6 +7,7 @@ import os
 import networkx as nx
 import matplotlib.pyplot as plt
 from demo_utils import draw_graph
+from sklearn.cluster import KMeans
 
 try:
  from PIL import Image
