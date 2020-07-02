@@ -141,3 +141,56 @@ def get_node_contours_and_shapes(binary_img):
 
     return node_contours, node_shapes
 
+def line_distinguisher(cnt,ori_img):
+    solid,dotted = line_style(ori_img)
+    x,y,w,h = cv.boundingRect(cnt) #Find the bound for the contour in rectangle
+    for line in solid:
+        x1,y1,x2,y2 = line #Get coordinates of the line
+        if (x-1<=x1<=x+w+1 or x-1<=x2<=x+w+1) and (y<=y1<=y+1 or y<=y2<=y+1):
+            #the line is associated with the contour
+            return "solid"
+    for line in dotted:
+        x1,y1,x2,y2 = line #Get coordinates of the line
+        if (x-1<=x1<=x+w+1 or x-1<=x2<=x+w+1) and (y<=y1<=y+1 or y<=y2<=y+1):
+            #the line is associated with the contour
+            return "dotted"
+    return "None"
+def line_style(img):
+    solid_line = [] # Stores solid line points
+    dotted_line = [] #Stores dotline points
+    _, threshold_img = cv2.threshold(img, 160, 255, cv2.THRESH_BINARY_INV)
+    node_contours, node_shapes=get_node_contours_and_shapes(img)
+    node_mask = np.zeros_like(threshold_img)
+    cv2.drawContours(node_mask, node_contours,-1,color=255,thickness=cv2.FILLED)
+    kernel = np.ones((5,5),np.uint8)
+    dilated_node_mask = cv2.dilate(node_mask,kernel,iterations = 2)
+    cv2_imshow(dilated_node_mask)
+    # cv2_imshow(node_mask)
+    filled_nodes_img = np.bitwise_or(node_mask, threshold_img)
+    edge_mask = cv2.bitwise_and(threshold_img, cv2.bitwise_not(dilated_node_mask))
+    cv2_imshow(edge_mask)
+    rho = 1  # distance resolution in pixels of the Hough grid
+    theta = np.pi / 180  # angular resolution in radians of the Hough grid
+    threshold = 80  # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = 40  # minimum number of pixels making up a line
+    max_line_gap = 5  # maximum gap in pixels between connectable line segments
+    line_only = np.copy(edge_mask)*0 # image without length put on.
+    # Run Hough on edge detected image
+    # Output "lines" is an array containing endpoints of detected line segments
+    lines = cv2.HoughLinesP(edge_mask, rho, theta, threshold, np.array([]),
+                        min_line_length, max_line_gap)
+    for i in range(len(lines)):
+        line = lines[i]
+        x1,y1,x2,y2 = line[0]
+        cv2.line(line_only,(x1,y1),(x2,y2),(255,0,0),2)
+        solid_line.append(line[0])
+    dotline_img = np.copy(img)*0 #black image with the same resolution
+    dotlines =edge_mask-line_only
+    cv2_imshow(dotlines)
+    dotlines_coor = cv2.HoughLinesP(dotlines, rho, theta, threshold, np.array([]),
+                        30, 10)
+    for i in range(len(dotlines_coor)):
+        line = lines[i]
+        x1,y1,x2,y2 = line[0]
+        dotted_line.append(line[0])
+
