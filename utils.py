@@ -121,8 +121,9 @@ def get_node_contours_and_shapes(binary_img):
         ct_shape = get_contour_shape(ct_i)
 
         if ct_shape in ['rectangle', 'ellipse', 'rhombus', 'triangle']:
+            line_type = line_distinguisher(ct_i,binary_img) # get the line type for the shape
             if parent_c == -1:
-                new_contours.append((ct_i, ct_shape))
+                new_contours.append((ct_i, ct_shape,line_type))
             else:
                 parent_shape = get_contour_shape(contours[parent_c])
                 if parent_shape not in ['rectangle', 'ellipse', 'rhombus', 'triangle']:
@@ -130,7 +131,7 @@ def get_node_contours_and_shapes(binary_img):
                     if grandpa_c == -1 or get_contour_shape(contours[grandpa_c]) not in ['rectangle', 'ellipse',
                                                                                          'rhombus',
                                                                                          'triangle']:
-                        new_contours.append((ct_i, ct_shape))
+                        new_contours.append((ct_i, ct_shape,line_type))
     # contours = sorted(contours, key=lambda cnt: -cv2.contourArea(cnt))
 
     cnts_perim = np.array([cv2.arcLength(cnt, True) for cnt, _ in new_contours])
@@ -138,8 +139,8 @@ def get_node_contours_and_shapes(binary_img):
 
     node_contours = [x[0] for x in node_contours_and_shapes]
     node_shapes = [x[1] for x in node_contours_and_shapes]
-
-    return node_contours, node_shapes
+    node_lines = [x[2] for x in node_contours_and_shapes]
+    return node_contours, node_shapes,node_lines
 
 def line_distinguisher(cnt,ori_img):
     solid,dotted = line_style(ori_img)
@@ -164,11 +165,7 @@ def line_style(img):
     cv2.drawContours(node_mask, node_contours,-1,color=255,thickness=cv2.FILLED)
     kernel = np.ones((5,5),np.uint8)
     dilated_node_mask = cv2.dilate(node_mask,kernel,iterations = 2)
-    cv2_imshow(dilated_node_mask)
-    # cv2_imshow(node_mask)
-    filled_nodes_img = np.bitwise_or(node_mask, threshold_img)
     edge_mask = cv2.bitwise_and(threshold_img, cv2.bitwise_not(dilated_node_mask))
-    cv2_imshow(edge_mask)
     rho = 1  # distance resolution in pixels of the Hough grid
     theta = np.pi / 180  # angular resolution in radians of the Hough grid
     threshold = 80  # minimum number of votes (intersections in Hough grid cell)
