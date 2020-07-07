@@ -10,6 +10,8 @@ if __name__ == "__main__":
     _, binary_orig_img = cv2.threshold(orig_img, 160, 255, cv2.THRESH_BINARY_INV)
     cv2.imshow("binary_orig_img", binary_orig_img)
     cv2.waitKey()
+    #BW image
+    bwi = cv2.bitwise_not(orig_img)
     # find contours
 
     node_contours, node_shapes = get_node_contours_and_shapes(binary_img=binary_orig_img)

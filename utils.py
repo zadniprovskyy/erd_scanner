@@ -141,3 +141,81 @@ def get_node_contours_and_shapes(binary_img):
 
     return node_contours, node_shapes
 
+
+def side_cut(img,demo):
+  #Using pillow to open the image
+  im = Image.open(img)
+  im_convert = im.convert('L').copy()
+  #Convert it into opencv format
+  open_cv_image = np.array(im_convert)
+  #Shape Detection
+  shape = contour_shape(open_cv_image)
+  #IF statement for shapes
+  if shape == "triangle":
+    print("triangle detected")
+    width, height = im_convert.size
+    cropped_width = round(width * 0.40243902)
+    cropped_height = round(height *0.20967742)
+    cropped_bottom = round(height * 0.03335606)
+    cropped = im_convert.crop((cropped_width,cropped_height,width-cropped_width,height-cropped_bottom))
+    cropped = np.array(cropped)
+    if(demo):
+      cv2_imshow(cropped)
+    return cropped
+  elif shape == "rhombus":
+    print("diamond detected")
+    #Rotate the img for 90 convert it into rectangular shape
+    rotate = im_convert.rotate(45,fillcolor=None)
+    width, height = rotate.size
+    coropped_size = round(width *0.1875)
+    cropped = rotate.crop((coropped_size,coropped_size,width-coropped_size,height-coropped_size))
+    #Rotate it back
+    rotated = cropped.rotate(315)
+    rotated = np.array(rotated)
+    if(demo):
+      cv2_imshow(rotated)
+    return rotated
+  elif shape == "ellipse":
+    print("ellipse detected")
+    #crop less side but more up and down
+    width, height = im_convert.size
+    cropped_width = round(width * 0.14772727)
+    cropped_height = round(height * 0.2545454545)
+    cropped_top = round(width * 0.125)
+    cropped_bottom = round(height * 0.2)
+    cropped = im_convert.crop((cropped_width,cropped_height,width-cropped_top,height-cropped_bottom))
+    #converting the image from pillow format to opencv format
+    cropped = np.array(cropped)
+    if(demo):
+      cv2_imshow(cropped)
+    return cropped
+  elif shape == "rectangle":
+    print("rectangle detected")
+    #crop equivalent size for rectangle
+    width, height = im_convert.size
+    cropped_width = round(width * 0.01639344)
+    cropped_height = round(height * 0.03225806)
+    cropped = im_convert.crop((cropped_width,cropped_height,width-cropped_width,height-cropped_height))
+    cropped = np.array(cropped)
+    #converting the image from pillow format to opencv format
+    if(demo):
+      cv2_imshow(cropped)
+    return cropped
+  else:
+    return False
+
+
+def get_contour_letters(cnt,shape):
+    underlined=gray_underlined
+    #reverse the colour
+    thresh = cv2.threshold(underlined, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    # Remove horizontal
+    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,1))
+    detected_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
+    cnts = cv2.findContours(detected_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    for c in cnts:
+        cv2.drawContours(gray_underlined, [c], -1, (255,255,255), 2)
+    text = pytt.image_to_string(underlined,config="-l eng -oem 2 -psm 11")
+    result = " ".join(text.split('\n'))
+    return result
