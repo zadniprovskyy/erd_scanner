@@ -300,6 +300,8 @@ def compare_similarity(g,g_sol):
             print("entity_name: "+entity_name)
             token = nlp(g.nodes[i]['ocr'])
             sol_entity_name = ""
+            sol_entity_num = -1
+            submission_num = -1
             for j in range(g_sol.number_of_nodes()):
                 if g_sol.nodes[i]['shape'] == "s":
                     if(token.similarity(nlp(g_sol.nodes[i]['ocr']))>0.9 or textdistance.levenshtein.normalized_similarity(g_sol.nodes[j]['ocr'],entity_name)>0.85):
@@ -307,32 +309,31 @@ def compare_similarity(g,g_sol):
                         #high similarity entity (similiar words or similar string)
                         print("Entity Name:"+g_sol.nodes[j]['ocr'])
                         sol_entity_name = g_sol.nodes[j]['ocr']
+                        sol_entity_num = j
+                        submission_num = i
                         break
-            if (sol_entity_name!=""):
+            if (sol_entity_num!=-1):
                 #found similar entity in solution graph
-                sol_connected = nx.node_connected_component(g_sol, sol_entity_name)
-                submission_connected = nx.node_connected_component(g, entity_name)
+                sol_connected = list(nx.node_connected_component(g_sol, sol_entity_num))
+                submission_connected = list(nx.node_connected_component(g, submission_num))
                 solution_long = False
                 mark = 0
-                if(len(sol_connected)>len(submission_edges)):
-                    solution_long = True
-                for i in range(len(submission_edges)):
-                    if(g.nodes[submission_connected[i]]['shape']=='o'):
+                attributes =0
+                for i in submission_connected:
+                    print("i: "+str(i))
+                    if(g.nodes[i]['shape']=='o'):
                         #The node is an attribute
                         similarity = 0
-                        attributes = 0
-                        token = nlp(g.nodes[submission_connected[i]]['ocr'])
-                        print("token: "+g.nodes[submission_connected[i]]['ocr'])
-                        for j in range(len(sol_connected)):
-                            if(g_sol.nodes[sol_connected[j]]['shape']=='o'):
-                                print("marks: "+textdistance.levenshtein.normalized_similarity(g.nodes[submission_connected[i]]['ocr'],g_sol.nodes[sol_connected[j]]['ocr']+"  similarity: "+token.similarity(nlp(g_sol.nodes[sol_connected[j]]['ocr']))))
-
-                                ans_similarity = max(token.similarity(nlp(g_sol.nodes[sol_connected[j]]['ocr'])),textdistance.levenshtein.normalized_similarity(g.nodes[submission_connected[i]]['ocr'],g_sol.nodes[sol_connected[j]]['ocr'])) # Get the max of the similarity mark
-
-                                attributes +=1
+                        token = nlp(g.nodes[i]['ocr'])
+                        print("token: "+g.nodes[i]['ocr'])
+                        for j in sol_connected:
+                            print("j: "+str(j))
+                            if(g_sol.nodes[j]['shape']=='o'):
+                                print("distance: "+str(textdistance.levenshtein.normalized_similarity(g.nodes[i]['ocr'],g_sol.nodes[j]['ocr'])))
+                                ans_similarity = max(token.similarity(nlp(g_sol.nodes[j]['ocr'])),textdistance.levenshtein.normalized_similarity(g.nodes[i]['ocr'],g_sol.nodes[j]['ocr'])) # Get the max of the similarity mark
                                 if(ans_similarity>similarity):
                                     similarity = ans_similarity
                         mark += similarity
-                    mark = mark / attributes # entity mark
-                    total += mark
+                mark = mark / attributes # entity mark
+                total += mark
     return total
