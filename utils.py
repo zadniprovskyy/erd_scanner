@@ -273,8 +273,8 @@ def get_contour_letters(cnt,shape):
         cv2.drawContours(gray_underlined, [c], -1, (255,255,255), 2)
     text = pytt.image_to_string(underlined,config="-l eng -oem 2 -psm 11")
     result = " ".join(text.split('\n'))
-    for i in len(result)-1:
-        if (result[i].isupper and result[i+1]!=" "):
+    for i in range(1,len(result)):
+        if (result[i].isupper and result[i-1]!=" "):
             result = result[:i]+" "+result[i:] # Give a space for each word.
     return result
 
@@ -299,23 +299,23 @@ def compare_similarity(g,g_sol):
                 #found similar entity in solution graph
                 sol_connected = nx.node_connected_component(g_sol, sol_entity_name)
                 submission_connected = nx.node_connected_component(g, entity_name)
-                sol_edges = g_sol.subgraph(sol_connected).edges()
-                submission_edges = g.subgraph(submission_connected).edges()
                 solution_long = False
                 mark = 0
-                if(len(sol_edges)>len(submission_edges)):
+                if(len(sol_connected)>len(submission_edges)):
                     solution_long = True
                 for i in range(len(submission_edges)):
-                    similarity = 0
-                    attributes = 0
-                    token = nlp.(submission_edges[i][1]['ocr'])
-                    for j in range(len(sol_edges)):
-                        if(submission_edges[j][1]['shape']=='o'):
-                            ans_similarity = max(token.compare_similarity(submission_edges[j][1]['ocr']),textdistance.levenshtein.normalized_similarity(submission_edges[i][1]['ocr'],submission_edges[j][1]['ocr'])) # Get the max of the similarity mark
-                            attributes +=1
-                            if(ans_similarity>similarity):
-                                similarity = ans_similarity
-                    mark += similarity
-                mark = mark / attributes # entity mark
-                total += mark
+                    if(submission_edges[j][1]['shape']=='o'):
+                        #The node is an attribute
+                        similarity = 0
+                        attributes = 0
+                        token = nlp.(submission_connected[i][1]['ocr'])
+                        for j in range(len(sol_connected)):
+                            if(sol_connected[j][1]['shape']=='o'):
+                                ans_similarity = max(token.compare_similarity(sol_connected[j][1]['ocr']),textdistance.levenshtein.normalized_similarity(submission_connected[i][1]['ocr'],sol_connected[j][1]['ocr'])) # Get the max of the similarity mark
+                                attributes +=1
+                                if(ans_similarity>similarity):
+                                    similarity = ans_similarity
+                        mark += similarity
+                    mark = mark / attributes # entity mark
+                    total += mark
     return total
