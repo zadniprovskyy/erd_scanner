@@ -17,12 +17,22 @@ def draw_graph(G):
     # For each node class...
     for aShape in nodeShapes:
         # ...filter and draw the subset of nodes with the same symbol in the positions that are now known through the use of the layout.
-        nx.draw_networkx_nodes(G, nodePos, node_shape=aShape, nodelist=[sNode[0] for sNode in
-                                                                        filter(lambda x: x[1]["shape"] == aShape,
-                                                                               G.nodes(data=True))])
+        nx.draw_networkx_nodes(G, nodePos, node_shape=aShape,
+                            nodelist=[sNode[0] for sNode in filter(lambda x: x[1]["shape"] == aShape,
+                            G.nodes(data=True))],
+                            node_size=list(map(
+                                lambda x: 600 if x[1]['double_lined'] else 200,
+                                filter(lambda x: x[1]["shape"] == aShape, G.nodes(data=True))
+                            ))
+        )
+
 
     # Finally, draw the edges between the nodes
-    nx.draw_networkx_edges(G, nodePos)
+    nx.draw_networkx_edges(G, nodePos, edgelist=list(filter(lambda e: e[2]['density'] < 1, G.edges(data=True))), style='dashed')
+    nx.draw_networkx_edges(G, nodePos, edgelist=list(filter(lambda e: e[2]['density'] >= 1, G.edges(data=True))),
+                           style='solid')
+    nx.draw_networkx_edges(G, nodePos, edgelist=list(filter(lambda e: e[2]['density'] >= 2.5, G.edges(data=True))),
+                           style='solid', width=3)
 
     plt.plot()
     plt.show()

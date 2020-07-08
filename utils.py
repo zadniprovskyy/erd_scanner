@@ -7,6 +7,8 @@ import os
 import networkx as nx
 import matplotlib.pyplot as plt
 from demo_utils import draw_graph
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
 
 try:
  from PIL import Image
@@ -58,55 +60,99 @@ def get_node_and_edge_masks(binary_img, node_contours):
     return dilated_node_mask, edge_mask
 
 
-def get_graph_from_masks(edge_mask, node_contours, node_shapes):
-    edge_mask_contours, _ = cv2.findContours(edge_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-    # demo_edge_endpoints_img = cv2.cvtColor(edge_mask, cv2.COLOR_GRAY2RGB).copy()
-    edge_mask_contours, _ = cv2.findContours(edge_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_lined):
+    edge_mask_contours, _ = cv2.findContours(edge_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
     # nbrs will serve as a classifier to determine which node edgepoint corresponds to
-    X = np.concatenate(node_contours, axis=0).squeeze(axis=1)
-    y = []
+    node_points = np.concatenate(node_contours, axis=0).squeeze(axis=1)
+    node_inds = []
     for i in range(len(node_contours)):
-        y.extend([i] * node_contours[i].shape[0])
+        node_inds.extend([i] * node_contours[i].shape[0])
 
-    nbrs = KNeighborsClassifier(n_neighbors=2).fit(X, y)
+    nbrs = KNeighborsClassifier(n_neighbors=2).fit(node_points, node_inds)
+    #################
+    edge_points = np.concatenate(edge_mask_contours, axis=0).squeeze(axis=1)
+    db = DBSCAN(eps=0.2, min_samples=30).fit(StandardScaler().fit_transform(edge_points))
+    ############
+    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+    core_samples_mask[db.core_sample_indices_] = True
+    labels = db.labels_
 
+    # Number of clusters in labels, ignoring noise if present.
+    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise_ = list(labels).count(-1)
+
+    print('Estimated number of clusters: %d' % n_clusters_)
+    print('Estimated number of noise points: %d' % n_noise_)
+
+    # #############################################################################
+    # Plot result
+    import matplotlib.pyplot as plt
+
+    # Black removed and is used for noise instead.
+    unique_labels = set(labels)
+    colors = [plt.cm.Spectral(each)
+              for each in np.linspace(0, 1, len(unique_labels))]
+    for k, col in zip(unique_labels, colors):
+        if k == -1:
+            # Black used for noise.
+            col = [0, 0, 0, 1]
+
+        class_member_mask = (labels == k)
+
+        xy = edge_points[class_member_mask & core_samples_mask]
+        plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
+                 markeredgecolor='k', markersize=14)
+
+        xy = edge_points[class_member_mask & ~core_samples_mask]
+        plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
+                 markeredgecolor='k', markersize=6)
+
+    plt.title('Estimated number of clusters: %d' % n_clusters_)
+    plt.show()
+
+    ###############
     line_contours = []
     line_endpoints = []
     edges = []
 
     G = nx.Graph()
+
     for i in range(len(node_shapes)):
         shape = node_shapes[i]
         if shape == "triangle":
-            G.add_node(i, shape='^')
+            shape_symbol='^'
         elif shape == "ellipse":
-            G.add_node(i, shape="o")
+            shape_symbol = 'o'
         elif shape == "rectangle":
-            G.add_node(i, shape="s")
+            shape_symbol = 's'
         elif shape == "rhombus":
-            G.add_node(i, shape="D")
+            shape_symbol = 'D'
         else:
-            G.add_node(i, shape="*")
-    for contour in edge_mask_contours:
-        fit_line = cv2.fitLine(contour, cv2.DIST_L2, 0, 0.1, 0.1)
-        rect = cv2.minAreaRect(contour)
+            shape_symbol = '*'
+
+        G.add_node(i, shape=shape_symbol, double_lined=node_double_lined[i])
+
+    for i in range(n_clusters_):
+        rect = cv2.minAreaRect(edge_points[db.labels_ == i])
         box = cv2.boxPoints(rect)
         box = np.int0(box)
 
         # plug into the line formula to find the two endpoints, p0 and p1
         # to plot, we need pixel locations so convert to int
         p0 = tuple(box[0])
-        if np.linalg.norm(box[0] - box[1]) < 10:
+        if np.linalg.norm(box[0] - box[1]) < np.linalg.norm(box[0] - box[3]):
             p1 = tuple(box[3])
         else:
-            p1 = tuple(box[2])
+            p1 = tuple(box[1])
 
         line_endpoints.append((p0, p1))
+        # print(edge_points[db.labels_ == i].shape[0] / np.linalg.norm(np.array(p0) - np.array(p1)) )
         # cv2.line(demo_edge_endpoints_img, p0, p1,  (0, 255, 0), 2)
-        edges.append(nbrs.predict([p0,p1]))
+        v1, v2 = nbrs.predict([p0,p1])
+        G.add_edge(v1, v2, density=edge_points[db.labels_ == i].shape[0] / np.linalg.norm(np.array(p0) - np.array(p1)))
 
-    G.add_edges_from(edges)
+    # G.add_edges_from(edges)
     return G
 
 
@@ -121,8 +167,14 @@ def get_node_contours_and_shapes(binary_img):
         ct_shape = get_contour_shape(ct_i)
 
         if ct_shape in ['rectangle', 'ellipse', 'rhombus', 'triangle']:
+            if child_c == -1:
+                double_lined = False
+            else:
+                child_shape = get_contour_shape(contours[child_c])
+                double_lined =  cv2.contourArea(contours[child_c]) >= cv2.contourArea(ct_i) * 0.9 and child_shape == ct_shape
+                print(double_lined, child_shape, ct_shape)
             if parent_c == -1:
-                new_contours.append((ct_i, ct_shape))
+                new_contours.append((ct_i, ct_shape, double_lined))
             else:
                 parent_shape = get_contour_shape(contours[parent_c])
                 if parent_shape not in ['rectangle', 'ellipse', 'rhombus', 'triangle']:
@@ -130,16 +182,18 @@ def get_node_contours_and_shapes(binary_img):
                     if grandpa_c == -1 or get_contour_shape(contours[grandpa_c]) not in ['rectangle', 'ellipse',
                                                                                          'rhombus',
                                                                                          'triangle']:
-                        new_contours.append((ct_i, ct_shape))
-    # contours = sorted(contours, key=lambda cnt: -cv2.contourArea(cnt))
+                        new_contours.append((ct_i, ct_shape, double_lined))
 
-    cnts_perim = np.array([cv2.arcLength(cnt, True) for cnt, _ in new_contours])
-    node_contours_and_shapes = list(filter(lambda cnt: cv2.arcLength(cnt[0], True) > 25, new_contours))
+    new_contours = sorted(new_contours, key=lambda cnt: -cv2.contourArea(cnt[0]))
+
+    # cnts_perim = np.array([cv2.arcLength(cnt, True) for cnt, _ in new_contours])
+    node_contours_and_shapes = list(filter(lambda cnt: cv2.contourArea(cnt[0])> 0.25*cv2.contourArea(new_contours[0][0]), new_contours))
 
     node_contours = [x[0] for x in node_contours_and_shapes]
     node_shapes = [x[1] for x in node_contours_and_shapes]
+    node_double_lined = [x[2] for x in node_contours_and_shapes]
 
-    return node_contours, node_shapes
+    return node_contours, node_shapes, node_double_lined
 
 
 def side_cut(img,demo):
