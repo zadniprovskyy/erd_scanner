@@ -34,5 +34,10 @@ def draw_graph(G):
     nx.draw_networkx_edges(G, nodePos, edgelist=list(filter(lambda e: e[2]['density'] >= 2.5, G.edges(data=True))),
                            style='solid', width=3)
 
+    labels_dict = {}
+    for i in range(len(G.nodes)):
+        labels_dict[i] = G.nodes[i]['name']
+    nx.draw_networkx_labels(G,pos=nx.spring_layout(G), labels=labels_dict)
+
     plt.plot()
     plt.show()

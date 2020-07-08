@@ -60,7 +60,7 @@ def get_node_and_edge_masks(binary_img, node_contours):
     return dilated_node_mask, edge_mask
 
 
-def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_lined):
+def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_lined, node_labels):
     edge_mask_contours, _ = cv2.findContours(edge_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
     # nbrs will serve as a classifier to determine which node edgepoint corresponds to
@@ -72,7 +72,7 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_line
     nbrs = KNeighborsClassifier(n_neighbors=2).fit(node_points, node_inds)
     #################
     edge_points = np.concatenate(edge_mask_contours, axis=0).squeeze(axis=1)
-    db = DBSCAN(eps=0.2, min_samples=30).fit(StandardScaler().fit_transform(edge_points))
+    db = DBSCAN(eps=10, min_samples=10).fit(edge_points)
     ############
     core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
     core_samples_mask[db.core_sample_indices_] = True
@@ -131,7 +131,7 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_line
         else:
             shape_symbol = '*'
 
-        G.add_node(i, shape=shape_symbol, double_lined=node_double_lined[i])
+        G.add_node(i, shape=shape_symbol, double_lined=node_double_lined[i], name=node_labels[i])
 
     for i in range(n_clusters_):
         rect = cv2.minAreaRect(edge_points[db.labels_ == i])
@@ -153,10 +153,11 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_line
         G.add_edge(v1, v2, density=edge_points[db.labels_ == i].shape[0] / np.linalg.norm(np.array(p0) - np.array(p1)))
 
     # G.add_edges_from(edges)
+
     return G
 
 
-def get_node_contours_and_shapes(binary_img):
+def get_node_contours_and_shapes(binary_img, orig_img):
     contours, hierarchy = cv2.findContours(binary_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     new_contours = []
 
@@ -166,12 +167,15 @@ def get_node_contours_and_shapes(binary_img):
         next_c, prev_c, child_c, parent_c = h_i
         ct_shape = get_contour_shape(ct_i)
 
+        _, _, ct_w, ct_h = cv2.boundingRect(ct_i)
+
         if ct_shape in ['rectangle', 'ellipse', 'rhombus', 'triangle']:
             if child_c == -1:
                 double_lined = False
             else:
                 child_shape = get_contour_shape(contours[child_c])
-                double_lined =  cv2.contourArea(contours[child_c]) >= cv2.contourArea(ct_i) * 0.9 and child_shape == ct_shape
+                _, _, child_w, child_h = cv2.boundingRect(contours[child_c])
+                double_lined = child_w >= ct_w * 0.6 and child_h >= ct_h * 0.6 and child_shape == ct_shape
                 print(double_lined, child_shape, ct_shape)
             if parent_c == -1:
                 new_contours.append((ct_i, ct_shape, double_lined))
@@ -187,11 +191,22 @@ def get_node_contours_and_shapes(binary_img):
     new_contours = sorted(new_contours, key=lambda cnt: -cv2.contourArea(cnt[0]))
 
     # cnts_perim = np.array([cv2.arcLength(cnt, True) for cnt, _ in new_contours])
-    node_contours_and_shapes = list(filter(lambda cnt: cv2.contourArea(cnt[0])> 0.25*cv2.contourArea(new_contours[0][0]), new_contours))
+    node_contours_and_shapes = list(filter(lambda cnt: cv2.contourArea(cnt[0])> 0.15*cv2.contourArea(new_contours[0][0]), new_contours))
 
     node_contours = [x[0] for x in node_contours_and_shapes]
     node_shapes = [x[1] for x in node_contours_and_shapes]
     node_double_lined = [x[2] for x in node_contours_and_shapes]
+    node_labels = []
+    for cnt in node_contours:
+        x,y,w,h = cv2.boundingRect(cnt)
+        # Adding custom options
+        c = 0.15
+        # cv2.imshow('text', orig_img[y+int(h*c):y+h - int(h*c), x+int(w*c):x+w-int(w*c)])
+        # cv2.waitKey()
+        custom_config = r'--oem 3 --psm 4'
+        node_labels.append(pytt.image_to_string(orig_img[y+int(h*c):y+h - int(h*c), x+int(w*c):x+w-int(w*c)], config=custom_config))
 
-    return node_contours, node_shapes, node_double_lined
+
+
+    return node_contours, node_shapes, node_double_lined, node_labels
 
