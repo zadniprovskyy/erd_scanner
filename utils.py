@@ -58,7 +58,7 @@ def get_node_and_edge_masks(binary_img, node_contours):
     kernel = np.ones((5, 5), np.uint8)
     dilated_node_mask = cv2.dilate(node_mask, kernel, iterations=2)
 
-    filled_nodes_img = np.bitwise_or(node_mask, binary_img)
+    filled_g.nodes_img = np.bitwise_or(node_mask, binary_img)
     edge_mask = cv2.bitwise_and(binary_img, cv2.bitwise_not(dilated_node_mask))
 
     return dilated_node_mask, edge_mask
@@ -289,24 +289,22 @@ def get_contour_letters(cnt,shape):
 
 def compare_similarity(g,g_sol):
     nlp = spacy.load("en_core_web_lg")
-    nodes = g.nodes
-    nodes_sol = g_sol.nodes
     total_entity_sol = 0
     total_entity_submission = 0
     total = 0
-    for i in range(g.number_of_nodes()):
-        if nodes[i]['shape'] == "s":
+    for i in range(g.number_of_g.nodes()):
+        if g.nodes[i]['shape'] == "s":
             total_entity_submission +=1
             #node is an entity
-            entity_name = nodes[1]['ocr']
-            token = nlp(nodes_sol[1]['ocr'])
+            entity_name = g.nodes[1]['ocr']
+            token = nlp(g_sol.g.nodes[1]['ocr'])
             sol_entity_name = ""
-            for j in range(g_sol.number_of_nodes()):
-                if nodes_sol[i]['shape'] == "s":
-                    if(token.similarity(nodes_sol[i]['ocr'])>0.9 or textdistance.levenshtein.normalized_similarity(nodes_sol[j]['ocr'],entity_name)>0.85):
+            for j in range(g_sol.number_of_g.nodes()):
+                if g_sol.g.nodes[i]['shape'] == "s":
+                    if(token.similarity(g_sol.g.nodes[i]['ocr'])>0.9 or textdistance.levenshtein.normalized_similarity(g_sol.g.nodes[j]['ocr'],entity_name)>0.85):
                         total_entity_sol += 1
                         #high similarity entity (similiar words or similar string)
-                        sol_entity_name = nodes_sol[j]['ocr']
+                        sol_entity_name = g_sol.g.nodes[j]['ocr']
                         break
             if (sol_entity_name!=""):
                 #found similar entity in solution graph
