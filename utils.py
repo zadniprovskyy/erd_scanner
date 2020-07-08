@@ -319,20 +319,19 @@ def compare_similarity(g,g_sol):
                 solution_long = False
                 mark = 0
                 for i in submission_connected:
-                    print("i: "+str(i))
                     if(g.nodes[i]['shape']=='o'):
                         #The node is an attribute
                         similarity = 0
                         token = nlp(g.nodes[i]['ocr'])
                         print("token: "+g.nodes[i]['ocr'])
                         for j in sol_connected:
-                            print("j: "+str(j))
                             if(g_sol.nodes[j]['shape']=='o'):
-                                print("distance: "+str(textdistance.levenshtein.normalized_similarity(g.nodes[i]['ocr'],g_sol.nodes[j]['ocr'])))
-                                print("similarity: ",token.similarity(nlp(g_sol.nodes[j]['ocr'])))
+                                #print("distance: "+str(textdistance.levenshtein.normalized_similarity(g.nodes[i]['ocr'],g_sol.nodes[j]['ocr'])))
+                                #print("similarity: ",token.similarity(nlp(g_sol.nodes[j]['ocr'])))
                                 ans_similarity = max(token.similarity(nlp(g_sol.nodes[j]['ocr'])),textdistance.levenshtein.normalized_similarity(g.nodes[i]['ocr'],g_sol.nodes[j]['ocr'])) # Get the max of the similarity mark
                                 if(ans_similarity>similarity):
                                     similarity = ans_similarity
+                        print("attribute mark earn: ",mark)
                         mark += similarity
                 mark = mark / len(sol_connected) # entity mark
                 total += mark
