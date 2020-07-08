@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 from demo_utils import draw_graph
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
-
+import spacy
+import textdistance
 try:
  from PIL import Image
 except ImportError:
@@ -60,7 +61,7 @@ def get_node_and_edge_masks(binary_img, node_contours):
     return dilated_node_mask, edge_mask
 
 
-def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_lined):
+def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_lined,node_OCR):
     edge_mask_contours, _ = cv2.findContours(edge_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
     # nbrs will serve as a classifier to determine which node edgepoint corresponds to
@@ -131,8 +132,8 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_line
         else:
             shape_symbol = '*'
 
-        G.add_node(i, shape=shape_symbol, double_lined=node_double_lined[i])
-
+        G.add_node(i, shape=shape_symbol, double_lined=node_double_lined[i],ocr = node_OCR[i])
+        
     for i in range(n_clusters_):
         rect = cv2.minAreaRect(edge_points[db.labels_ == i])
         box = cv2.boxPoints(rect)
@@ -151,7 +152,7 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_line
         # cv2.line(demo_edge_endpoints_img, p0, p1,  (0, 255, 0), 2)
         v1, v2 = nbrs.predict([p0,p1])
         G.add_edge(v1, v2, density=edge_points[db.labels_ == i].shape[0] / np.linalg.norm(np.array(p0) - np.array(p1)))
-
+        
     # G.add_edges_from(edges)
     return G
 
@@ -172,9 +173,11 @@ def get_node_contours_and_shapes(binary_img):
             else:
                 child_shape = get_contour_shape(contours[child_c])
                 double_lined =  cv2.contourArea(contours[child_c]) >= cv2.contourArea(ct_i) * 0.9 and child_shape == ct_shape
-                print(double_lined, child_shape, ct_shape)
+                words = get_contour_letters(ct_i,ct_shape)
+                print(double_lined, child_shape, ct_shape,words)
             if parent_c == -1:
-                new_contours.append((ct_i, ct_shape, double_lined))
+                words = get_contour_letters(ct_i,ct_shape)
+                new_contours.append((ct_i, ct_shape, double_lined,words))
             else:
                 parent_shape = get_contour_shape(contours[parent_c])
                 if parent_shape not in ['rectangle', 'ellipse', 'rhombus', 'triangle']:
@@ -182,7 +185,7 @@ def get_node_contours_and_shapes(binary_img):
                     if grandpa_c == -1 or get_contour_shape(contours[grandpa_c]) not in ['rectangle', 'ellipse',
                                                                                          'rhombus',
                                                                                          'triangle']:
-                        new_contours.append((ct_i, ct_shape, double_lined))
+                        new_contours.append((ct_i, ct_shape, double_lined,words))
 
     new_contours = sorted(new_contours, key=lambda cnt: -cv2.contourArea(cnt[0]))
 
@@ -192,8 +195,8 @@ def get_node_contours_and_shapes(binary_img):
     node_contours = [x[0] for x in node_contours_and_shapes]
     node_shapes = [x[1] for x in node_contours_and_shapes]
     node_double_lined = [x[2] for x in node_contours_and_shapes]
-
-    return node_contours, node_shapes, node_double_lined
+    node_OCR = [x[3] for x in node_contours_and_shapes]    
+    return node_contours, node_shapes, node_double_lined,node_OCR
 
 
 def side_cut(img,demo):
@@ -260,16 +263,59 @@ def side_cut(img,demo):
 
 
 def get_contour_letters(cnt,shape):
-    underlined=gray_underlined
-    #reverse the colour
-    thresh = cv2.threshold(underlined, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    underlined=cnt
     # Remove horizontal
     horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,1))
-    detected_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
+    detected_lines = cv2.morphologyEx(cnt, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
     cnts = cv2.findContours(detected_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     for c in cnts:
         cv2.drawContours(gray_underlined, [c], -1, (255,255,255), 2)
     text = pytt.image_to_string(underlined,config="-l eng -oem 2 -psm 11")
     result = " ".join(text.split('\n'))
+    for i in len(result)-1:
+        if (result[i].isupper and result[i+1]!=" "):
+            result = result[:i]+" "+result[i:] # Give a space for each word.
     return result
+
+def compare_similarity(g,g_sol):
+    nlp = spacy.load("en_core_web_lg")
+    nodes = g.nodes()
+    nodes_sol = g_sol.nodes()
+    total = 0
+    for i in range(len(g.number_of_nodes())):
+        if nodes[i][1]['shape'] == "s":
+            #node is an entity
+            entity_name = nodes[i][1]['ocr']
+            token = nlp.(nodes_sol[i][1]['ocr'])
+            sol_entity_name = ""
+            for j in in range(len(g_sol.number_of_nodes())):
+                if nodes_sol[i][1]['shape'] == "s":
+                    if(token.compare_similarity(nodes_sol[i][1]['ocr'])>0.9 or textdistance.levenshtein.normalized_similarity(nodes_sol[i][1]['ocr'],entity_name)>0.85):
+                        #high similarity entity (similiar words or similar string)
+                        sol_entity_name = nodes_sol[i][1]['ocr']
+                        break
+            if (sol_entity_name!=""):
+                #found similar entity in solution graph
+                sol_connected = nx.node_connected_component(g_sol, sol_entity_name)
+                submission_connected = nx.node_connected_component(g, entity_name)
+                sol_edges = g_sol.subgraph(sol_connected).edges()
+                submission_edges = g.subgraph(submission_connected).edges()
+                solution_long = False
+                mark = 0
+                if(len(sol_edges)>len(submission_edges)):
+                    solution_long = True
+                for i in range(len(submission_edges)):
+                    similarity = 0
+                    attributes = 0
+                    token = nlp.(submission_edges[i][1]['ocr'])
+                    for j in range(len(sol_edges)):
+                        if(submission_edges[j][1]['shape']=='o'):
+                            ans_similarity = max(token.compare_similarity(submission_edges[j][1]['ocr']),textdistance.levenshtein.normalized_similarity(submission_edges[i][1]['ocr'],submission_edges[j][1]['ocr'])) # Get the max of the similarity mark
+                            attributes +=1
+                            if(ans_similarity>similarity):
+                                similarity = ans_similarity
+                    mark += similarity
+                mark = mark / attributes # entity mark
+                total += mark
+    return total
