@@ -58,7 +58,7 @@ def get_node_and_edge_masks(binary_img, node_contours):
     kernel = np.ones((5, 5), np.uint8)
     dilated_node_mask = cv2.dilate(node_mask, kernel, iterations=2)
 
-    filled_g.nodes_img = np.bitwise_or(node_mask, binary_img)
+    filled_nodes_img = np.bitwise_or(node_mask, binary_img)
     edge_mask = cv2.bitwise_and(binary_img, cv2.bitwise_not(dilated_node_mask))
 
     return dilated_node_mask, edge_mask
@@ -292,19 +292,21 @@ def compare_similarity(g,g_sol):
     total_entity_sol = 0
     total_entity_submission = 0
     total = 0
-    for i in range(g.number_of_g.nodes()):
+    for i in range(g.number_of_nodes()):
         if g.nodes[i]['shape'] == "s":
             total_entity_submission +=1
             #node is an entity
-            entity_name = g.nodes[1]['ocr']
-            token = nlp(g_sol.g.nodes[1]['ocr'])
+            entity_name = g.nodes[i]['ocr']
+            print("entity_name: "+entity_name)
+            token = nlp(g.nodes[i]['ocr'])
             sol_entity_name = ""
-            for j in range(g_sol.number_of_g.nodes()):
-                if g_sol.g.nodes[i]['shape'] == "s":
-                    if(token.similarity(g_sol.g.nodes[i]['ocr'])>0.9 or textdistance.levenshtein.normalized_similarity(g_sol.g.nodes[j]['ocr'],entity_name)>0.85):
+            for j in range(g_sol.number_of_nodes()):
+                if g_sol.nodes[i]['shape'] == "s":
+                    if(token.similarity(nlp(g_sol.nodes[i]['ocr']))>0.9 or textdistance.levenshtein.normalized_similarity(g_sol.nodes[j]['ocr'],entity_name)>0.85):
                         total_entity_sol += 1
                         #high similarity entity (similiar words or similar string)
-                        sol_entity_name = g_sol.g.nodes[j]['ocr']
+                        print("Entity Name:"+g_sol.nodes[j]['ocr'])
+                        sol_entity_name = g_sol.nodes[j]['ocr']
                         break
             if (sol_entity_name!=""):
                 #found similar entity in solution graph
@@ -315,14 +317,18 @@ def compare_similarity(g,g_sol):
                 if(len(sol_connected)>len(submission_edges)):
                     solution_long = True
                 for i in range(len(submission_edges)):
-                    if(submission_edges[j]['shape']=='o'):
+                    if(g.nodes[submission_connected[i]]['shape']=='o'):
                         #The node is an attribute
                         similarity = 0
                         attributes = 0
-                        token = nlp(submission_connected[i]['ocr'])
+                        token = nlp(g.nodes[submission_connected[i]]['ocr'])
+                        print("token: "+g.nodes[submission_connected[i]]['ocr'])
                         for j in range(len(sol_connected)):
-                            if(sol_connected[j]['shape']=='o'):
-                                ans_similarity = max(token.similarity(sol_connected[j]['ocr']),textdistance.levenshtein.normalized_similarity(submission_connected[i]['ocr'],sol_connected[j]['ocr'])) # Get the max of the similarity mark
+                            if(g_sol.nodes[sol_connected[j]]['shape']=='o'):
+                                print("marks: "+textdistance.levenshtein.normalized_similarity(g.nodes[submission_connected[i]]['ocr'],g_sol.nodes[sol_connected[j]]['ocr']+"  similarity: "+token.similarity(nlp(g_sol.nodes[sol_connected[j]]['ocr']))))
+
+                                ans_similarity = max(token.similarity(nlp(g_sol.nodes[sol_connected[j]]['ocr'])),textdistance.levenshtein.normalized_similarity(g.nodes[submission_connected[i]]['ocr'],g_sol.nodes[sol_connected[j]]['ocr'])) # Get the max of the similarity mark
+
                                 attributes +=1
                                 if(ans_similarity>similarity):
                                     similarity = ans_similarity
