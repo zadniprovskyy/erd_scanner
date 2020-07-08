@@ -173,10 +173,18 @@ def get_node_contours_and_shapes(binary_img):
             else:
                 child_shape = get_contour_shape(contours[child_c])
                 double_lined =  cv2.contourArea(contours[child_c]) >= cv2.contourArea(ct_i) * 0.9 and child_shape == ct_shape
-                words = get_contour_letters(ct_i,ct_shape)
+                x,y,w,h = cv2.boundingRect(ct_i)
+                node_img = binary_img[y:y+h,x:x+w].copy()
+                node_img = cv2.resize(node_img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+                contour = side_cut(node_img,ct_shape,False)
+                words = get_contour_letters(contour,ct_shape)
                 print(double_lined, child_shape, ct_shape,words)
             if parent_c == -1:
-                words = get_contour_letters(ct_i,ct_shape)
+                x,y,w,h = cv2.boundingRect(ct_i)
+                node_img = img[y:y+h,x:x+w].copy()
+                contour = side_cut(node_img,ct_shape,False)
+                node_img = cv2.resize(node_img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+                words = get_contour_letters(contour,ct_shape)
                 new_contours.append((ct_i, ct_shape, double_lined,words))
             else:
                 parent_shape = get_contour_shape(contours[parent_c])
@@ -199,14 +207,13 @@ def get_node_contours_and_shapes(binary_img):
     return node_contours, node_shapes, node_double_lined,node_OCR
 
 
-def side_cut(img,demo):
+def side_cut(img,shape,demo):
   #Using pillow to open the image
-  im = Image.open(img)
+  im = Image.fromarray(img)
   im_convert = im.convert('L').copy()
   #Convert it into opencv format
   open_cv_image = np.array(im_convert)
   #Shape Detection
-  shape = contour_shape(open_cv_image)
   #IF statement for shapes
   if shape == "triangle":
     print("triangle detected")
@@ -263,15 +270,14 @@ def side_cut(img,demo):
 
 
 def get_contour_letters(cnt,shape):
-    underlined=cnt
-    # Remove horizontal
-    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,1))
-    detected_lines = cv2.morphologyEx(cnt, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
-    cnts = cv2.findContours(detected_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-    for c in cnts:
-        cv2.drawContours(gray_underlined, [c], -1, (255,255,255), 2)
-    text = pytt.image_to_string(underlined,config="-l eng -oem 2 -psm 11")
+    # # Remove horizontal
+    # horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,1))
+    # detected_lines = cv2.morphologyEx(cnt, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
+    # cnts = cv2.findContours(detected_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    # for c in cnts:
+    #     cv2.drawContours(cnt, [c], -1, (255,255,255), 2)
+    text = pytt.image_to_string(cnt,config="-l eng -oem 2 -psm 11")
     result = " ".join(text.split('\n'))
     for i in range(1,len(result)):
         if (result[i].isupper and result[i-1]!=" "):
@@ -287,9 +293,9 @@ def compare_similarity(g,g_sol):
         if nodes[i][1]['shape'] == "s":
             #node is an entity
             entity_name = nodes[i][1]['ocr']
-            token = nlp.(nodes_sol[i][1]['ocr'])
+            token = nlp(nodes_sol[i][1]['ocr'])
             sol_entity_name = ""
-            for j in in range(len(g_sol.number_of_nodes())):
+            for j in range(len(g_sol.number_of_nodes())):
                 if nodes_sol[i][1]['shape'] == "s":
                     if(token.compare_similarity(nodes_sol[i][1]['ocr'])>0.9 or textdistance.levenshtein.normalized_similarity(nodes_sol[i][1]['ocr'],entity_name)>0.85):
                         #high similarity entity (similiar words or similar string)
@@ -308,7 +314,7 @@ def compare_similarity(g,g_sol):
                         #The node is an attribute
                         similarity = 0
                         attributes = 0
-                        token = nlp.(submission_connected[i][1]['ocr'])
+                        token = nlp(submission_connected[i][1]['ocr'])
                         for j in range(len(sol_connected)):
                             if(sol_connected[j][1]['shape']=='o'):
                                 ans_similarity = max(token.compare_similarity(sol_connected[j][1]['ocr']),textdistance.levenshtein.normalized_similarity(submission_connected[i][1]['ocr'],sol_connected[j][1]['ocr'])) # Get the max of the similarity mark
