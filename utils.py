@@ -15,6 +15,9 @@ try:
  from PIL import Image
 except ImportError:
  import Image
+from sys import platform
+if platform == "win32":
+    pytt.pytesseract.tesseract_cmd = 'C:/Program Files/Tesseract-OCR/tesseract.exe'
 
 def get_contour_shape(cnt):
     approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
@@ -277,29 +280,33 @@ def get_contour_letters(cnt,shape):
     # cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     # for c in cnts:
     #     cv2.drawContours(cnt, [c], -1, (255,255,255), 2)
-    text = pytt.image_to_string(cnt,config="-l eng -oem 2 -psm 11")
+    text = pytt.image_to_string(cnt,config="-l eng --psm 11")
     result = " ".join(text.split('\n'))
-    for i in range(1,len(result)):
-        if (result[i].isupper and result[i-1]!=" "):
-            result = result[:i]+" "+result[i:] # Give a space for each word.
+    # for i in range(1,len(result)):
+    #     if (result[i].isupper() and result[i-1]!=" "):
+    #         result = result[:i]+" "+result[i:] # Give a space for each word.
     return result
 
 def compare_similarity(g,g_sol):
     nlp = spacy.load("en_core_web_lg")
-    nodes = g.nodes()
-    nodes_sol = g_sol.nodes()
+    nodes = g.nodes
+    nodes_sol = g_sol.nodes
+    total_entity_sol = 0
+    total_entity_submission = 0
     total = 0
-    for i in range(len(g.number_of_nodes())):
-        if nodes[i][1]['shape'] == "s":
+    for i in range(g.number_of_nodes()):
+        if nodes[i]['shape'] == "s":
+            total_entity_submission +=1
             #node is an entity
-            entity_name = nodes[i][1]['ocr']
-            token = nlp(nodes_sol[i][1]['ocr'])
+            entity_name = nodes[1]['ocr']
+            token = nlp(nodes_sol[1]['ocr'])
             sol_entity_name = ""
-            for j in range(len(g_sol.number_of_nodes())):
-                if nodes_sol[i][1]['shape'] == "s":
-                    if(token.compare_similarity(nodes_sol[i][1]['ocr'])>0.9 or textdistance.levenshtein.normalized_similarity(nodes_sol[i][1]['ocr'],entity_name)>0.85):
+            for j in range(g_sol.number_of_nodes()):
+                if nodes_sol[i]['shape'] == "s":
+                    if(token.similarity(nodes_sol[i]['ocr'])>0.9 or textdistance.levenshtein.normalized_similarity(nodes_sol[j]['ocr'],entity_name)>0.85):
+                        total_entity_sol += 1
                         #high similarity entity (similiar words or similar string)
-                        sol_entity_name = nodes_sol[i][1]['ocr']
+                        sol_entity_name = nodes_sol[j]['ocr']
                         break
             if (sol_entity_name!=""):
                 #found similar entity in solution graph
@@ -310,14 +317,14 @@ def compare_similarity(g,g_sol):
                 if(len(sol_connected)>len(submission_edges)):
                     solution_long = True
                 for i in range(len(submission_edges)):
-                    if(submission_edges[j][1]['shape']=='o'):
+                    if(submission_edges[j]['shape']=='o'):
                         #The node is an attribute
                         similarity = 0
                         attributes = 0
-                        token = nlp(submission_connected[i][1]['ocr'])
+                        token = nlp(submission_connected[i]['ocr'])
                         for j in range(len(sol_connected)):
-                            if(sol_connected[j][1]['shape']=='o'):
-                                ans_similarity = max(token.compare_similarity(sol_connected[j][1]['ocr']),textdistance.levenshtein.normalized_similarity(submission_connected[i][1]['ocr'],sol_connected[j][1]['ocr'])) # Get the max of the similarity mark
+                            if(sol_connected[j]['shape']=='o'):
+                                ans_similarity = max(token.similarity(sol_connected[j]['ocr']),textdistance.levenshtein.normalized_similarity(submission_connected[i]['ocr'],sol_connected[j]['ocr'])) # Get the max of the similarity mark
                                 attributes +=1
                                 if(ans_similarity>similarity):
                                     similarity = ans_similarity
