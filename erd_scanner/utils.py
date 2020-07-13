@@ -1,14 +1,9 @@
 import cv2
 import numpy as np
-import scipy
 import pytesseract as pytt
 from sklearn.neighbors import KNeighborsClassifier
-import os
 import networkx as nx
-import matplotlib.pyplot as plt
-from demo_utils import draw_graph
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler
 
 try:
  from PIL import Image
