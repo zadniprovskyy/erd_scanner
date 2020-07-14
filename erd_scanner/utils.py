@@ -77,8 +77,8 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_line
     n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
     n_noise_ = list(labels).count(-1)
 
-    print('Estimated number of clusters: %d' % n_clusters_)
-    print('Estimated number of noise points: %d' % n_noise_)
+    # print('Estimated number of clusters: %d' % n_clusters_)
+    # print('Estimated number of noise points: %d' % n_noise_)
 
     # #############################################################################
     # Plot result
@@ -171,7 +171,7 @@ def get_node_contours_and_shapes(binary_img, orig_img):
                 child_shape = get_contour_shape(contours[child_c])
                 _, _, child_w, child_h = cv2.boundingRect(contours[child_c])
                 double_lined = child_w >= ct_w * 0.6 and child_h >= ct_h * 0.6 and child_shape == ct_shape
-                print(double_lined, child_shape, ct_shape)
+                # print(double_lined, child_shape, ct_shape)
             if parent_c == -1:
                 new_contours.append((ct_i, ct_shape, double_lined))
             else:

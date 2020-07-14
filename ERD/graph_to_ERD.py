@@ -12,8 +12,9 @@ def graph_to_ERD(g):
                 new_ERD.add_entity(entity)
             entity.strong_entity = g.nodes[i]['double_lined']
             connections = list(nx.node_connected_component(g, i))
-            for connected_node in connections:
+            for connected_node_index in connections:
                 # Attribute
+                connected_node = g.nodes[connected_node_index]
                 if connected_node['shape'] == 'o':
                     new_attr = Attribute()
                     new_attr.name = connected_node['name']
@@ -51,7 +52,7 @@ def graph_to_ERD(g):
                             new_rel_attr.multi_valued = neighbor['double_lined']
                             # TODO - Get Key Info for Relationship Attributes
                             new_rel.add_attribute(new_rel_attr)
-            return new_ERD
+    return new_ERD
 
 
 
