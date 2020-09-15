@@ -37,7 +37,7 @@ def draw_graph(G):
     labels_dict = {}
     for i in range(len(G.nodes)):
         labels_dict[i] = G.nodes[i]['name']
-    nx.draw_networkx_labels(G,pos=nx.spring_layout(G), labels=labels_dict)
+    nx.draw_networkx_labels(G,pos=nodePos, labels=labels_dict)
 
     plt.plot()
     plt.show()

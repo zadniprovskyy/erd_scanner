@@ -126,7 +126,10 @@ def get_graph_from_masks(edge_mask, node_contours, node_shapes, node_double_line
         else:
             shape_symbol = '*'
 
-        G.add_node(i, shape=shape_symbol, double_lined=node_double_lined[i], name=node_labels[i])
+        M = cv2.moments(node_contours[i])
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        G.add_node(i, shape=shape_symbol, double_lined=node_double_lined[i], name=node_labels[i], center=(cX, cY))
 
     for i in range(n_clusters_):
         rect = cv2.minAreaRect(edge_points[db.labels_ == i])
@@ -199,8 +202,9 @@ def get_node_contours_and_shapes(binary_img, orig_img):
         # cv2.imshow('text', orig_img[y+int(h*c):y+h - int(h*c), x+int(w*c):x+w-int(w*c)])
         # cv2.waitKey()
         custom_config = r'--oem 3 --psm 4'
-        node_labels.append(pytt.image_to_string(orig_img[y+int(h*c):y+h - int(h*c), x+int(w*c):x+w-int(w*c)], config=custom_config))
+        custom_config = r'--oem 3 --psm 4 -c tessedit_char_whitelist="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz*."'
 
+        node_labels.append(pytt.image_to_string(orig_img[y+int(h*c):y+h - int(h*c), x+int(w*c):x+w-int(w*c)], config=custom_config))
 
 
     return node_contours, node_shapes, node_double_lined, node_labels

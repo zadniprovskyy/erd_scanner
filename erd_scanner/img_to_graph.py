@@ -3,12 +3,14 @@ import networkx as nx
 from erd_scanner.utils import *
 
 
-def img_to_graph(img):
+def img_to_graph(img, demo=False):
     _, binary_orig_img = cv2.threshold(img, 160, 255, cv2.THRESH_BINARY_INV)
-    cv2.imshow("binary_orig_img", binary_orig_img)
-    cv2.waitKey()
-    # find contours
 
+    if demo:
+        cv2.imshow("binary_orig_img", binary_orig_img)
+        cv2.waitKey()
+
+    # find contours
     node_contours, node_shapes, node_double_lined, node_names = get_node_contours_and_shapes(binary_img=binary_orig_img,
                                                                                              orig_img=img)
 
@@ -18,4 +20,6 @@ def img_to_graph(img):
     G = get_graph_from_masks(edge_mask=edge_mask, node_contours=node_contours, node_shapes=node_shapes,
                              node_double_lined=node_double_lined, node_labels=node_names)
 
+    for v in G.nodes(data=True):
+        v[1]['name'] = v[1]['name'].strip()
     return G
