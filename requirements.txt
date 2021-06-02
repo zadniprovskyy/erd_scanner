@@ -36,6 +36,6 @@ threadpoolctl==2.1.0
 torch==1.5.1
 torchvision==0.6.1
 tqdm==4.47.0
-urllib3==1.25.9
+urllib3==1.26.5
 wasabi==0.7.0
 zipp==3.1.0
